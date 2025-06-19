@@ -47,7 +47,6 @@ Try these to test the chatbot:
 
 ### 🔗 [Open in Google Colab](https://colab.research.google.com/drive/1UEX4JMW6O8kriDmJWAutNvTSHTLnoGqb?usp=drive_link)
 
-> Replace `Yugant1338` with your GitHub username after uploading.
 
 ---
 
