@@ -45,23 +45,47 @@ all_contexts = law_texts + ipc_texts
 
 # Embed all contexts
 context_embeddings = embedder.encode(all_contexts, convert_to_tensor=True)
+# Initialize embedder
 
-model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base")
-tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-base")
+model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-large")
+tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-large")
 
 qa_pipeline = pipeline("text2text-generation", model=model, tokenizer=tokenizer)
 
-def find_semantic_context(question):
+def find_semantic_context(question, top_k=3):
+    # Encode the question into an embedding
     question_embedding = embedder.encode(question, convert_to_tensor=True)
-    hits = util.semantic_search(question_embedding, context_embeddings, top_k=1)
-    best_index = hits[0][0]['corpus_id']
-    return all_contexts[best_index]
+
+    # Retrieve top-k most similar contexts
+    hits = util.semantic_search(question_embedding, context_embeddings, top_k=top_k)
+
+    # Collect all top-k contexts
+    retrieved_contexts = [all_contexts[hit['corpus_id']] for hit in hits[0]]
+
+    # Join them into one string
+    combined_context = "\n\n".join(retrieved_contexts)
+
+    return combined_context
 
 def ask_law_bot(question):
-    context = find_semantic_context(question)
-    prompt = f"Question: {question}\nContext: {context}\nAnswer:"
-    result = qa_pipeline(prompt, max_length=256)[0]["generated_text"]
-    return result
+    context = find_semantic_context(question, top_k=3)
+
+    prompt = f"""
+    You are an Indian legal assistant.
+
+    - If the user asks a **legal question**, answer strictly based on the Constitution of India, IPC, or Indian law sections from the provided context.
+    - If the user asks for **suggestions or advice**, provide practical legal guidance along with the relevant law.
+    - If the answer is not present in the context, say: "This specific information was not found in the law dataset. Please consult a qualified lawyer for official advice."
+
+    Question: {question}
+    Context from laws:
+    {context}
+
+    Answer:
+    """
+
+    result = qa_pipeline(prompt, max_length=512)[0]["generated_text"]
+    return result.strip()
 
 gr.Interface(
     fn=ask_law_bot,
